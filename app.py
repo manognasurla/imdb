@@ -5,23 +5,38 @@ import streamlit as st
 # IMDb API details
 IMDB_HOST = "imdb-com.p.rapidapi.com"
 IMDB_API_KEY = "adbee7169amshb7f94a54c3f881bp1ea346jsn4753ffc1e693"
-IMDB_URL = f"https://{IMDB_HOST}/title/get-overview"
+SEARCH_URL = f"https://{IMDB_HOST}/title/v2/find"
+MOVIE_URL = f"https://{IMDB_HOST}/title/get-overview"
 
-# Function to fetch movie data
+# Function to get IMDb ID from movie name
+def get_imdb_id(movie_name):
+    headers = {
+        "X-RapidAPI-Host": IMDB_HOST,
+        "X-RapidAPI-Key": IMDB_API_KEY
+    }
+    params = {"title": movie_name, "limit": 1}
+    response = requests.get(SEARCH_URL, headers=headers, params=params)
+    
+    if response.status_code == 200:
+        data = response.json()
+        if "results" in data and len(data["results"]) > 0:
+            return data["results"][0].get("id", "").replace("/title/", "").replace("/", "")
+    return None
+
+# Function to fetch movie details
 def get_movie_data(movie_id):
     headers = {
         "X-RapidAPI-Host": IMDB_HOST,
         "X-RapidAPI-Key": IMDB_API_KEY
     }
-    params = {"tconst": movie_id}  # IMDb ID of the movie
-    response = requests.get(IMDB_URL, headers=headers, params=params)
+    params = {"tconst": movie_id}
+    response = requests.get(MOVIE_URL, headers=headers, params=params)
     
     if response.status_code == 200:
         return response.json()
-    else:
-        return None
+    return None
 
-# Function to clean and format data
+# Function to clean movie data
 def clean_movie_data(data):
     if not data:
         return None
@@ -33,7 +48,6 @@ def clean_movie_data(data):
         if field in data:
             cleaned_data[field] = data[field]
     
-    # Convert ratings to a structured format
     if "ratings" in cleaned_data:
         cleaned_data["ratingValue"] = cleaned_data["ratings"].get("ratingValue", "N/A")
         cleaned_data["ratingCount"] = cleaned_data["ratings"].get("ratingCount", "N/A")
@@ -42,16 +56,21 @@ def clean_movie_data(data):
     return cleaned_data
 
 # Streamlit UI
-st.title("IMDb Movie Data Fetcher")
-st.write("Enter the IMDb Movie ID to get its details.")
+st.title("IMDb Movie Search")
+st.write("Enter a movie name to fetch IMDb details.")
 
-movie_id = st.text_input("Enter IMDb ID (e.g., tt0111161 for The Shawshank Redemption):")
+movie_name = st.text_input("Enter Movie Name:")
 
 if st.button("Fetch Movie Data"):
-    raw_data = get_movie_data(movie_id)
-    cleaned_data = clean_movie_data(raw_data)
-    
-    if cleaned_data:
-        st.json(cleaned_data)  # Display cleaned JSON data in Streamlit
+    movie_id = get_imdb_id(movie_name)
+    if movie_id:
+        raw_data = get_movie_data(movie_id)
+        cleaned_data = clean_movie_data(raw_data)
+        
+        if cleaned_data:
+            st.json(cleaned_data)
+        else:
+            st.error("Movie details not found.")
     else:
-        st.error("Movie not found or error fetching data.")
+        st.error("Movie not found. Please check the name.")
+
