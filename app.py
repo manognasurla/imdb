@@ -14,16 +14,19 @@ def get_imdb_id(movie_name):
         "X-RapidAPI-Host": IMDB_HOST,
         "X-RapidAPI-Key": IMDB_API_KEY
     }
-    params = {"title": movie_name, "limit": 1}
+    params = {"q": movie_name, "limit": 5}  # Changed to 'q' parameter for better search
     response = requests.get(SEARCH_URL, headers=headers, params=params)
+    
+    st.write("Debug: Raw Search API Response", response.text)  # Log raw API response
     
     if response.status_code == 200:
         data = response.json()
-        st.write("Debug: Search API Response", data)  # Debugging output
         if "results" in data and len(data["results"]) > 0:
-            imdb_id = data["results"][0].get("id", "").replace("/title/", "").replace("/", "")
-            st.write("Debug: Extracted IMDb ID", imdb_id)  # Debugging output
-            return imdb_id
+            for result in data["results"]:
+                if "id" in result and "/title/" in result["id"]:
+                    imdb_id = result["id"].replace("/title/", "").replace("/", "")
+                    st.write("Debug: Extracted IMDb ID", imdb_id)  # Debugging output
+                    return imdb_id
     return None
 
 # Function to fetch movie details
@@ -34,6 +37,8 @@ def get_movie_data(movie_id):
     }
     params = {"tconst": movie_id}
     response = requests.get(MOVIE_URL, headers=headers, params=params)
+    
+    st.write("Debug: Raw Movie Data API Response", response.text)  # Log raw API response
     
     if response.status_code == 200:
         return response.json()
