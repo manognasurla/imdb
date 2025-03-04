@@ -5,7 +5,7 @@ import streamlit as st
 # IMDb API details
 IMDB_HOST = "imdb-com.p.rapidapi.com"
 IMDB_API_KEY = "adbee7169amshb7f94a54c3f881bp1ea346jsn4753ffc1e693"
-SEARCH_URL = f"https://{IMDB_HOST}/title/v2/find"
+SEARCH_URL = f"https://{IMDB_HOST}/title/find"
 MOVIE_URL = f"https://{IMDB_HOST}/title/get-overview"
 
 # Function to get IMDb ID from movie name
@@ -14,7 +14,7 @@ def get_imdb_id(movie_name):
         "X-RapidAPI-Host": IMDB_HOST,
         "X-RapidAPI-Key": IMDB_API_KEY
     }
-    params = {"q": movie_name, "limit": 5}  # Changed to 'q' parameter for better search
+    params = {"q": movie_name}  # Corrected endpoint and query parameter
     response = requests.get(SEARCH_URL, headers=headers, params=params)
     
     st.write("Debug: Raw Search API Response", response.text)  # Log raw API response
@@ -81,3 +81,4 @@ if st.button("Fetch Movie Data"):
             st.error("Movie details not found.")
     else:
         st.error("Movie not found. Please check the name.")
+
