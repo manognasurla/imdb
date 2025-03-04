@@ -1,0 +1,6 @@
+streamlit
+pandas 
+requests 
+scikit-learn 
+matplotlib
+adbee7169amshb7f94a54c3f881bp1ea346jsn4753ffc1e693
