@@ -19,8 +19,11 @@ def get_imdb_id(movie_name):
     
     if response.status_code == 200:
         data = response.json()
+        st.write("Debug: Search API Response", data)  # Debugging output
         if "results" in data and len(data["results"]) > 0:
-            return data["results"][0].get("id", "").replace("/title/", "").replace("/", "")
+            imdb_id = data["results"][0].get("id", "").replace("/title/", "").replace("/", "")
+            st.write("Debug: Extracted IMDb ID", imdb_id)  # Debugging output
+            return imdb_id
     return None
 
 # Function to fetch movie details
@@ -73,4 +76,3 @@ if st.button("Fetch Movie Data"):
             st.error("Movie details not found.")
     else:
         st.error("Movie not found. Please check the name.")
-
