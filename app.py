@@ -6,7 +6,11 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 
 # Load IMDb dataset
-df = pd.read_csv("imdb_movies.csv")
+try:
+    df = pd.read_csv("imdb_movies.csv")
+except FileNotFoundError:
+    st.error("Dataset 'imdb_movies.csv' not found. Please upload the correct file.")
+    st.stop()
 
 # Preprocess data
 scaler = StandardScaler()
@@ -24,7 +28,7 @@ y = df["score_category"]
 label_encoders = {}
 for col in x.select_dtypes(include=['object']).columns:
     le = LabelEncoder()
-    x[col] = le.fit_transform(x[col])
+    x[col] = le.fit_transform(x[col].astype(str))
     label_encoders[col] = le
 
 # Split data into training and testing sets
@@ -35,38 +39,37 @@ lda = LinearDiscriminantAnalysis()
 lda.fit(x_train, y_train)
 
 # Streamlit UI
-st.title("IMDb Movie Score Prediction")
+st.title("🎬 IMDb Movie Score Prediction")
 st.write("Enter movie details to predict its IMDb score category (Low, Medium, High).")
 
 # User input fields
-budget = st.number_input("Budget", min_value=0.0)
-revenue = st.number_input("Revenue", min_value=0.0)
-name = st.text_input("Movie Name")
-date = st.text_input("Release Date")
-country = st.text_input("Country")
+budget = st.number_input("💰 Budget ($)", min_value=0.0, step=100000.0)
+revenue = st.number_input("📈 Revenue ($)", min_value=0.0, step=100000.0)
+name = st.text_input("🎞 Movie Name")
+date = st.text_input("📅 Release Date (YYYY-MM-DD)")
+country = st.text_input("🌍 Country")
 
 # Convert inputs using label encoders if necessary
-if name and date and country:
-    if name in label_encoders['names'].classes_:
-        name_encoded = label_encoders['names'].transform([name])[0]
+def encode_value(column, value):
+    if value in label_encoders[column].classes_:
+        return label_encoders[column].transform([value])[0]
     else:
-        name_encoded = 0  # Default for unknown values
-    
-    if date in label_encoders['date_x'].classes_:
-        date_encoded = label_encoders['date_x'].transform([date])[0]
-    else:
-        date_encoded = 0
-    
-    if country in label_encoders['country'].classes_:
-        country_encoded = label_encoders['country'].transform([country])[0]
-    else:
-        country_encoded = 0
+        return -1  # Assign an unknown value indicator
 
-    # Prepare input data for prediction
-    user_input = np.array([[budget, revenue, name_encoded, date_encoded, country_encoded]])
-    user_input[:, :2] = scaler.transform(user_input[:, :2])  # Scale numerical features
-    
-    # Make prediction
-    prediction = lda.predict(user_input)[0]
-    st.write(f"Predicted IMDb Score Category: {prediction}")
+if st.button("🔍 Predict Score Category"):
+    if not name or not date or not country:
+        st.warning("Please fill in all fields before predicting.")
+    else:
+        name_encoded = encode_value('names', name)
+        date_encoded = encode_value('date_x', date)
+        country_encoded = encode_value('country', country)
+        
+        # Prepare input data for prediction
+        user_input = np.array([[budget, revenue, name_encoded, date_encoded, country_encoded]])
+        user_input[:, :2] = scaler.transform(user_input[:, :2])  # Scale numerical features
+        
+        # Make prediction
+        prediction = lda.predict(user_input)[0]
+        st.success(f"🎯 Predicted IMDb Score Category: **{prediction}**")
+
 
