@@ -1,84 +1,54 @@
-import requests
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
-# IMDb API details
-IMDB_HOST = "imdb-com.p.rapidapi.com"
-IMDB_API_KEY = "adbee7169amshb7f94a54c3f881bp1ea346jsn4753ffc1e693"
-SEARCH_URL = f"https://{IMDB_HOST}/title/find"
-MOVIE_URL = f"https://{IMDB_HOST}/title/get-overview"
+# Load IMDb dataset
+df = pd.read_csv("imdb_movies.csv")
 
-# Function to get IMDb ID from movie name
-def get_imdb_id(movie_name):
-    headers = {
-        "X-RapidAPI-Host": IMDB_HOST,
-        "X-RapidAPI-Key": IMDB_API_KEY
-    }
-    params = {"q": movie_name}  # Corrected endpoint and query parameter
-    response = requests.get(SEARCH_URL, headers=headers, params=params)
-    
-    st.write("Debug: Raw Search API Response", response.text)  # Log raw API response
-    
-    if response.status_code == 200:
-        data = response.json()
-        if "results" in data and len(data["results"]) > 0:
-            for result in data["results"]:
-                if "id" in result and "/title/" in result["id"]:
-                    imdb_id = result["id"].replace("/title/", "").replace("/", "")
-                    st.write("Debug: Extracted IMDb ID", imdb_id)  # Debugging output
-                    return imdb_id
-    return None
+# Preprocessing
+scaler = StandardScaler()
+numerical_features = ["budget_x", "revenue"]
+df[numerical_features] = scaler.fit_transform(df[numerical_features])
 
-# Function to fetch movie details
-def get_movie_data(movie_id):
-    headers = {
-        "X-RapidAPI-Host": IMDB_HOST,
-        "X-RapidAPI-Key": IMDB_API_KEY
-    }
-    params = {"tconst": movie_id}
-    response = requests.get(MOVIE_URL, headers=headers, params=params)
-    
-    st.write("Debug: Raw Movie Data API Response", response.text)  # Log raw API response
-    
-    if response.status_code == 200:
-        return response.json()
-    return None
+df['score_category'] = pd.cut(df['score'], bins=[-float('inf'), 5, 7, float('inf')], labels=['low', 'medium', 'high'])
 
-# Function to clean movie data
-def clean_movie_data(data):
-    if not data:
-        return None
-    
-    cleaned_data = {}
-    fields = ["title", "year", "ratings", "plotSummary", "genres", "directors", "actors"]
-    
-    for field in fields:
-        if field in data:
-            cleaned_data[field] = data[field]
-    
-    if "ratings" in cleaned_data:
-        cleaned_data["ratingValue"] = cleaned_data["ratings"].get("ratingValue", "N/A")
-        cleaned_data["ratingCount"] = cleaned_data["ratings"].get("ratingCount", "N/A")
-        del cleaned_data["ratings"]
-    
-    return cleaned_data
+x = df[["budget_x", "revenue", 'names', 'date_x', 'country']]
+y = df["score_category"]
+
+# Encode categorical features
+label_encoders = {}
+for col in x.select_dtypes(include=['object']).columns:
+    le = LabelEncoder()
+    x[col] = le.fit_transform(x[col])
+    label_encoders[col] = le
+
+# Split data
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.1, random_state=42)
+
+# Train LDA model
+lda = LinearDiscriminantAnalysis()
+lda.fit(x_train, y_train)
+y_pred = lda.predict(x_test)
+accuracy = accuracy_score(y_test, y_pred)
 
 # Streamlit UI
-st.title("IMDb Movie Search")
-st.write("Enter a movie name to fetch IMDb details.")
+st.title("IMDb Movie Score Classification")
+st.write("Classifying movies into score categories: Low, Medium, and High.")
 
-movie_name = st.text_input("Enter Movie Name:")
+st.write(f"Model Accuracy: {accuracy:.2f}")
 
-if st.button("Fetch Movie Data"):
-    movie_id = get_imdb_id(movie_name)
-    if movie_id:
-        raw_data = get_movie_data(movie_id)
-        cleaned_data = clean_movie_data(raw_data)
-        
-        if cleaned_data:
-            st.json(cleaned_data)
-        else:
-            st.error("Movie details not found.")
-    else:
-        st.error("Movie not found. Please check the name.")
+# User Input for Prediction
+st.subheader("Predict Movie Score Category")
+budget = st.number_input("Enter Budget", min_value=0.0, step=100000.0)
+revenue = st.number_input("Enter Revenue", min_value=0.0, step=100000.0)
+
+if st.button("Predict"):
+    user_data = np.array([[budget, revenue, 0, 0, 0]])  # Default encoded values for categorical fields
+    user_data[:, :2] = scaler.transform(user_data[:, :2])  # Scale numerical values
+    prediction = lda.predict(user_data)[0]
+    st.write(f"Predicted Score Category: {prediction}")
 
